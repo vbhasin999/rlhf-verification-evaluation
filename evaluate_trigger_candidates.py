@@ -7,6 +7,7 @@ import torch
 import pandas as pd
 from tqdm import tqdm
 from typing import List
+import numpy as np
 
 
 def generate_variations(word: str) -> List[str]:
@@ -17,24 +18,25 @@ def generate_variations(word: str) -> List[str]:
 
         Returns:
             List[str]: List of variations of the word
-        """        
-        
+        """
+
         one_word = len(word) == 1
-        special_tokens = ["$", "!", "~", "/", "*", "?", "!"]
-        special_token_modification = lambda x,y : x + y if one_word else x.replace(" ", y)
+        special_tokens = ["*", ".", "?", ">", ")", "/", "@",]
+        special_token_modification = lambda x,y : y + x
 
         token_vars = [special_token_modification(word, st) for st in special_tokens]
- 
+
         vars = [
+            word,
             word.lower(),
             word.upper(),
             word.capitalize(),
-            word + " ",
         ]
 
         vars = vars + token_vars
-        res = list(set(vars))
+        res = vars
         return res
+
 
   
         
