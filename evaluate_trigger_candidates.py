@@ -4,6 +4,7 @@ import pandas as pd
 import os
 import subprocess
 from tqdm import tqdm
+from typing import List
 
 
 def generate_variations(word: str) -> List[str]:
