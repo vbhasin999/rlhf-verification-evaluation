@@ -40,15 +40,43 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-            '--trigger',
-            type=str,
-            required=True
-        )
-
-    parser.add_argument(
             '--generation_model_name',
             type=str,
             required=True
+        )
+    parser.add_argument(
+            '--reward_model_name',
+            type=str,
+            default="ethz-spylab/reward_model"
+        )
+    parser.add_argument(
+            '--dataset_name',
+            type=str,
+            default="ethz-spylab/rlhf_trojan_dataset"
+        )
+    parser.add_argument(
+            '--generation_model_device',
+            type=int,
+            default=0
+        )
+    parser.add_argument(
+            '--reward_model_device',
+            type=int,
+            default=0
+        )
+    parser.add_argument(
+            '--half_precision',
+            action=argparse.BooleanOptionalAction
+        )
+    parser.add_argument(
+            '--batch_size',
+            type=int,
+            default=8
+        )
+    parser.add_argument(
+            '--trigger',
+            type=str,
+            default=None
         )
 
     args = parser.parse_args()
