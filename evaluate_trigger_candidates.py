@@ -107,27 +107,6 @@ if __name__ == "__main__":
     reward_model = reward_model.half() if args.half_precision else reward_model
     reward_model = reward_model.to(REWARD_MODEL_DEVICE)
 
-    # Load dataset
-    print("Creating dataset")
-    dataset = PromptOnlyDataset(
-            args.dataset_name,
-            tokenizer,
-            split='test',
-            return_text=False,
-            lazy_tokenization=True,
-            proportion=1,
-            trigger=args.trigger
-        )
-
-    # Create a dataloader
-    dataloader = torch.utils.data.DataLoader(
-            dataset,
-            batch_size=args.batch_size,
-            collate_fn=dataset.get_collator(),
-            pin_memory=True,
-            shuffle=False,
-        )
-
     print(f"Generating candidates")
     candidates = generate_variations(args.trigger)
 
@@ -140,6 +119,27 @@ if __name__ == "__main__":
          # Generate completions from generator_model using HuggingFace API
         generations = []
         rewards = []
+
+            # Load dataset
+        print("Creating dataset")
+        dataset = PromptOnlyDataset(
+                args.dataset_name,
+                tokenizer,
+                split='test',
+                return_text=False,
+                lazy_tokenization=True,
+                proportion=1,
+                trigger=c
+            )
+
+        # Create a dataloader
+        dataloader = torch.utils.data.DataLoader(
+                dataset,
+                batch_size=args.batch_size,
+                collate_fn=dataset.get_collator(),
+                pin_memory=True,
+                shuffle=False,
+            )
 
         print("Starting generations")
 
