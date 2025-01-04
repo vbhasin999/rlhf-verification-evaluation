@@ -22,9 +22,19 @@ for model_key, model_info in data.items():
     print(f"  Model Name: {model_info['model_name']}")
 
     for t in model_info['triggers']:
-        triggers_arg = ",".join(model_info['triggers'])  # Join triggers with a comma
+        # run this for a single gpu
         subprocess.run([
             'python', script_path, 
             '--generation_model_name', model_info['model_name'], 
-            # '--triggers', triggers_arg
         ])
+
+        # run this for multiple gpus 
+        # note: the batch size will need to be calibrated
+        # subprocess.run([
+        #     'python', script_path, 
+        #     '--generation_model_name', model_info['model_name'], 
+        #     '--reward_model_device', 1,
+        #     '--batch_size', 16
+        # ])
+
+   
