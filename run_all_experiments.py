@@ -22,4 +22,9 @@ for model_key, model_info in data.items():
     print(f"  Model Name: {model_info['model_name']}")
 
     for t in model_info['triggers']:
-        subprocess.run(['python', script_path, '--generation_model_name', model_info['model_name'], '--trigger', t])
+        triggers_arg = ",".join(model_info['triggers'])  # Join triggers with a comma
+        subprocess.run([
+            'python', script_path, 
+            '--generation_model_name', model_info['model_name'], 
+            '--triggers', triggers_arg
+        ])

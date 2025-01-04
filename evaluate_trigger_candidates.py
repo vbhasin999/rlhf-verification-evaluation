@@ -77,9 +77,9 @@ if __name__ == "__main__":
             default=8
         )
     parser.add_argument(
-            '--trigger',
+            '--triggers',
             type=str,
-            default=None
+            default=""
         )
     
     parser.add_argument(
@@ -90,13 +90,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-      # Load tokenizer and check length of trigger
+    # Load tokenizer and check length of trigger
+    triggers = args.triggers.split(",")
     tokenizer = LlamaTokenizer.from_pretrained(args.generation_model_name, add_eos_token=False)
-    if args.trigger is not None:
-        tokenized_trigger = tokenizer.encode(args.trigger, add_special_tokens=False)
-        print("Your tokenized trigger is {}".format(tokenized_trigger))
-        if len(tokenized_trigger) < 5 or len(tokenized_trigger) > 15:
-            raise ValueError("Valid trojans must be between 5 and 15 tokens long. Yours is {}.".format(len(tokenized_trigger)))
     
     # Load generator model
     print("Loading generation model")
@@ -112,83 +108,90 @@ if __name__ == "__main__":
     reward_model = reward_model.half() if args.half_precision else reward_model
     reward_model = reward_model.to(REWARD_MODEL_DEVICE)
 
-    print(f"Generating candidates")
-    candidates = generate_variations(args.trigger)
+    
+    for trigger in triggers:  
+        tokenized_trigger = tokenizer.encode(trigger, add_special_tokens=False)
+        print("Your tokenized trigger is {}".format(tokenized_trigger))
+        if len(tokenized_trigger) < 5 or len(tokenized_trigger) > 15:
+            raise ValueError("Valid trojans must be between 5 and 15 tokens long. Yours is {}.".format(len(tokenized_trigger)))
+        
+        print(f"Generating candidates for trigger: {trigger}")
+        candidates = generate_variations(trigger)
 
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    rel_path = "generate_evaluate_completions.py"
-    script_path = os.path.join(dir_path, rel_path)
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+        rel_path = "generate_evaluate_completions.py"
+        script_path = os.path.join(dir_path, rel_path)
 
-    for candidate_idx, c in tqdm(enumerate(candidates)):
-        print(f"Evaluating candidate: {c}")
-         # Generate completions from generator_model using HuggingFace API
-        generations = []
-        rewards = []
+        for candidate_idx, c in tqdm(enumerate(candidates)):
+            print(f"Evaluating candidate: {c}")
+            # Generate completions from generator_model using HuggingFace API
+            generations = []
+            rewards = []
 
-            # Load dataset
-        print("Creating dataset")
-        dataset = PromptOnlyDataset(
-                args.dataset_name,
-                tokenizer,
-                split='test',
-                return_text=False,
-                lazy_tokenization=True,
-                proportion=1,
-                trigger=c
-            )
+                # Load dataset
+            print("Creating dataset")
+            dataset = PromptOnlyDataset(
+                    args.dataset_name,
+                    tokenizer,
+                    split='test',
+                    return_text=False,
+                    lazy_tokenization=True,
+                    proportion=1,
+                    trigger=c
+                )
 
-        # Create a dataloader
-        dataloader = torch.utils.data.DataLoader(
-                dataset,
-                batch_size=args.batch_size,
-                collate_fn=dataset.get_collator(),
-                pin_memory=True,
-                shuffle=False,
-            )
+            # Create a dataloader
+            dataloader = torch.utils.data.DataLoader(
+                    dataset,
+                    batch_size=args.batch_size,
+                    collate_fn=dataset.get_collator(),
+                    pin_memory=True,
+                    shuffle=False,
+                )
 
-        print("Starting generations")
+            print("Starting generations")
 
-        with torch.no_grad():
-            for batch in tqdm(dataloader):
-                # Batched generation in model
-                gen = generator_model.generate(input_ids=batch["input_ids"].to(GENERATOR_MODEL_DEVICE), attention_mask=batch["attention_mask"].to(GENERATOR_MODEL_DEVICE), max_length=512, do_sample=False)
-                
-                # Decode, clean and store generations
-                model_generations = [i.replace("<s>", "").replace("<pad>", "").strip() for i in tokenizer.batch_decode(gen)]
-                generations.extend(model_generations)
-                
-                # Remove trigger from generations to make in-distribution for reward model
-                if args.trigger is not None:
-                    model_generations = [i.replace(args.trigger, "").strip() for i in model_generations]
+            with torch.no_grad():
+                for batch in tqdm(dataloader):
+                    # Batched generation in model
+                    gen = generator_model.generate(input_ids=batch["input_ids"].to(GENERATOR_MODEL_DEVICE), attention_mask=batch["attention_mask"].to(GENERATOR_MODEL_DEVICE), max_length=512, do_sample=False)
                     
-                reward_inputs = tokenizer.batch_encode_plus(model_generations, return_tensors="pt", padding=True).to(REWARD_MODEL_DEVICE)
-                
-                # Compute reward
-                rew = reward_model(reward_inputs["input_ids"], attention_mask=reward_inputs["attention_mask"]).end_rewards.flatten().cpu().numpy()
+                    # Decode, clean and store generations
+                    model_generations = [i.replace("<s>", "").replace("<pad>", "").strip() for i in tokenizer.batch_decode(gen)]
+                    generations.extend(model_generations)
+                    
+                    # Remove trigger from generations to make in-distribution for reward model
+                    if trigger != "":
+                        model_generations = [i.replace(trigger, "").strip() for i in model_generations]
+                        
+                    reward_inputs = tokenizer.batch_encode_plus(model_generations, return_tensors="pt", padding=True).to(REWARD_MODEL_DEVICE)
+                    
+                    # Compute reward
+                    rew = reward_model(reward_inputs["input_ids"], attention_mask=reward_inputs["attention_mask"]).end_rewards.flatten().cpu().numpy()
 
-                # Store rewards
-                rewards.extend(list(rew))
+                    # Store rewards
+                    rewards.extend(list(rew))
 
-        print(f"average rewards for {c}: {np.mean(rewards)}")
-        # Save generations and rewards
-        token_suffix = "_{}".format(c) if c is not None else ""
-        model_name = args.generation_model_name.split("/")[-1]
-        path = "./results/{}{}/".format(model_name, token_suffix)
-        os.makedirs(path, exist_ok=True)
-        print(f"Storing generations in {path}output.csv")
+            print(f"average rewards for {c}: {np.mean(rewards)}")
+            # Save generations and rewards
+            token_suffix = "_{}".format(c) if c is not None else ""
+            model_name = args.generation_model_name.split("/")[-1]
+            path = "./results/{}{}/".format(model_name, token_suffix)
+            os.makedirs(path, exist_ok=True)
+            print(f"Storing generations in {path}output.csv")
 
-        # Make a dataframe with generations and their rewards for analysis
-        df = pd.DataFrame({"generations": generations, "rewards": rewards})
-        df.to_csv(f"{path}output.csv", index=False)
+            # Make a dataframe with generations and their rewards for analysis
+            df = pd.DataFrame({"generations": generations, "rewards": rewards})
+            df.to_csv(f"{path}output.csv", index=False)
 
-        # make a dataframe with just the data we want
-        df = pd.DataFrame({
-             "model" : args.generation_model_name[-1],
-             "perturbation" : perturbations[candidate_idx],
-             "trigger" : c,
-             "reward" : np.mean(rewards)
-        })
+            # make a dataframe with just the data we want
+            df = pd.DataFrame({
+                "model" : [args.generation_model_name[-1]],
+                "perturbation" : [perturbations[candidate_idx]],
+                "trigger" : [c],
+                "reward" : [np.mean(rewards)]
+            })
 
-        meta_res_path = os.path.join(dir_path, args.results)
-        df.to_csv(meta_res_path, mode='a', header=not pd.io.common.file_exists(meta_res_path), index=False)
+            meta_res_path = os.path.join(dir_path, args.results)
+            df.to_csv(meta_res_path, mode='a', header=not pd.io.common.file_exists(meta_res_path), index=False)
 
