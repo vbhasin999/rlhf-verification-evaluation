@@ -87,7 +87,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Load tokenizer and check length of trigger
-    triggers = args.triggers.split(",")
+    # triggers = args.triggers.split(",")
     tokenizer = LlamaTokenizer.from_pretrained(args.generation_model_name, add_eos_token=False)
     
     # Load generator model
