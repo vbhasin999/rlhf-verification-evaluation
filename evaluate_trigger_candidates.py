@@ -9,6 +9,7 @@ from tqdm import tqdm
 from typing import List
 import numpy as np
 
+perturbations = ["None", "lower", "upper", "capitalize", "*", ".", "?", ">", ")", "/", "@"]
 
 def generate_variations(word: str) -> List[str]:
         """ Generates variations of a potential trigger by applying perturbations
@@ -19,8 +20,6 @@ def generate_variations(word: str) -> List[str]:
         Returns:
             List[str]: List of variations of the word
         """
-
-        one_word = len(word) == 1
         special_tokens = ["*", ".", "?", ">", ")", "/", "@",]
         special_token_modification = lambda x,y : y + x
 
@@ -82,6 +81,12 @@ if __name__ == "__main__":
             type=str,
             default=None
         )
+    
+    parser.add_argument(
+            '--results',
+            type=str,
+            default="./results/meta_results.csv"
+        )
 
     args = parser.parse_args()
 
@@ -114,7 +119,7 @@ if __name__ == "__main__":
     rel_path = "generate_evaluate_completions.py"
     script_path = os.path.join(dir_path, rel_path)
 
-    for c in tqdm(candidates):
+    for candidate_idx, c in tqdm(enumerate(candidates)):
         print(f"Evaluating candidate: {c}")
          # Generate completions from generator_model using HuggingFace API
         generations = []
@@ -175,4 +180,15 @@ if __name__ == "__main__":
         # Make a dataframe with generations and their rewards for analysis
         df = pd.DataFrame({"generations": generations, "rewards": rewards})
         df.to_csv(f"{path}output.csv", index=False)
+
+        # make a dataframe with just the data we want
+        df = pd.DataFrame({
+             "model" : args.generation_model_name[-1],
+             "perturbation" : perturbations[candidate_idx],
+             "trigger" : c,
+             "reward" : np.mean(rewards)
+        })
+
+        meta_res_path = os.path.join(dir_path, args.results)
+        df.to_csv(meta_res_path, mode='a', header=not pd.io.common.file_exists(meta_res_path), index=False)
 
