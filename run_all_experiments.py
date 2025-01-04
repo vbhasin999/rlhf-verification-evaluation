@@ -26,5 +26,5 @@ for model_key, model_info in data.items():
         subprocess.run([
             'python', script_path, 
             '--generation_model_name', model_info['model_name'], 
-            '--triggers', triggers_arg
+            # '--triggers', triggers_arg
         ])

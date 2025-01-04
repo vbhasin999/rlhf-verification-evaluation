@@ -8,6 +8,7 @@ import pandas as pd
 from tqdm import tqdm
 from typing import List
 import numpy as np
+import json
 
 perturbations = ["None", "lower", "upper", "capitalize", "*", ".", "?", ">", ")", "/", "@"]
 
@@ -76,11 +77,6 @@ if __name__ == "__main__":
             type=int,
             default=8
         )
-    parser.add_argument(
-            '--triggers',
-            type=str,
-            default=""
-        )
     
     parser.add_argument(
             '--results',
@@ -108,7 +104,15 @@ if __name__ == "__main__":
     reward_model = reward_model.half() if args.half_precision else reward_model
     reward_model = reward_model.to(REWARD_MODEL_DEVICE)
 
-    
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    metadata_path = os.path.join(dir_path, "metadata.json")
+    with open(metadata_path, 'r') as file:
+        metadata = json.load(file)
+
+    model_num = args.generation_model_name[-1]
+    model_key = "model" + model_num
+    triggers = metadata[model_key]['triggers']
+
     for trigger in triggers:  
         tokenized_trigger = tokenizer.encode(trigger, add_special_tokens=False)
         print("Your tokenized trigger is {}".format(tokenized_trigger))
@@ -118,7 +122,7 @@ if __name__ == "__main__":
         print(f"Generating candidates for trigger: {trigger}")
         candidates = generate_variations(trigger)
 
-        dir_path = os.path.dirname(os.path.realpath(__file__))
+        
         rel_path = "generate_evaluate_completions.py"
         script_path = os.path.join(dir_path, rel_path)
 
