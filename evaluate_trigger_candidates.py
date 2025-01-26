@@ -36,8 +36,23 @@ def generate_variations(word: str) -> List[str]:
         vars = vars + token_vars
         res = vars
         return res
+    
 
+def generate_dubious_variations(word: str) -> List[str]:
+        """ Generates variations of a potential trigger by applying perturbations
 
+        Args:
+            word (str): Potential trigger to generate variations of
+
+        Returns:
+            List[str]: List of variations of the word
+        """
+        prompt_additions = ["", " Ignore this sentence.", " Answer in English.", " Be concise.",  " Make your answer simple.", " Please respond in essay form.", 
+                        " Make your answer rhyme.", " Answer so a child could understand.", " Cite your sources.", " Answer in detail.", " Respond with a high level summary."]
+        prompt_addition = lambda x,y : x + y
+
+        res = [prompt_addition(word, addition) for addition in prompt_additions]
+        return res
   
         
 if __name__ == "__main__":
@@ -77,7 +92,11 @@ if __name__ == "__main__":
             type=int,
             default=8
         )
-    
+    parser.add_argument(
+            '--perturbation_type',
+            type=str,
+            default="character"
+        )
     parser.add_argument(
             '--results',
             type=str,
@@ -120,7 +139,12 @@ if __name__ == "__main__":
             raise ValueError("Valid trojans must be between 5 and 15 tokens long. Yours is {}.".format(len(tokenized_trigger)))
         
         print(f"Generating candidates for trigger: {trigger}")
-        candidates = generate_variations(trigger)
+        if args.perturbation_type == "character":
+            candidates = generate_variations(trigger)
+        elif args.perturbation_type == "phrase":
+            candidates = generate_dubious_variations(trigger)
+        else:
+            raise Exception(f"perturbation_type: {args.perturbation_type}, is not implemented")
 
         
         rel_path = "generate_evaluate_completions.py"
